@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
         clientId: client.id,
         userId: session.id,
         notes: `Lead created manually`,
-        metadata: { source: "manual" },
+        metadata: { source: "manual" } as Record<string, unknown>,
       },
     });
 
