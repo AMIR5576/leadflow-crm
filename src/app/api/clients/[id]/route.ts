@@ -49,13 +49,35 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const old = await prisma.client.findFirst({ where: { id: params.id, createdById: session.id } });
     if (!old) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
 
+    // Build update object explicitly to avoid Prisma type conflicts with assignedToId null
+    const updateData: {
+      name?: string;
+      phone?: string;
+      email?: string | null;
+      status?: string;
+      notes?: string | null;
+      tags?: string[];
+      customFields?: Record<string, string>;
+      followUpAt?: Date | null;
+      lastActivityAt: Date;
+      assignedTo?: { connect: { id: string } } | { disconnect: true };
+    } = { lastActivityAt: new Date() };
+
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.phone !== undefined) updateData.phone = data.phone;
+    if (data.email !== undefined) updateData.email = data.email;
+    if (data.status !== undefined) updateData.status = data.status;
+    if (data.notes !== undefined) updateData.notes = data.notes;
+    if (data.tags !== undefined) updateData.tags = data.tags;
+    if (data.customFields !== undefined) updateData.customFields = data.customFields;
+    if (data.followUpAt === null) updateData.followUpAt = null;
+    else if (data.followUpAt !== undefined) updateData.followUpAt = new Date(data.followUpAt);
+    if (data.assignedToId === null) updateData.assignedTo = { disconnect: true };
+    else if (data.assignedToId !== undefined) updateData.assignedTo = { connect: { id: data.assignedToId } };
+
     const client = await prisma.client.update({
       where: { id: params.id },
-      data: {
-        ...data,
-        followUpAt: data.followUpAt ? new Date(data.followUpAt) : data.followUpAt === null ? null : undefined,
-        lastActivityAt: new Date(),
-      },
+      data: updateData,
     });
 
     // Log status change activity
