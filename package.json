@@ -1,0 +1,49 @@
+{
+  "name": "leadflow-crm",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:push": "prisma db push",
+    "db:generate": "prisma generate",
+    "db:studio": "prisma studio",
+    "db:seed": "tsx prisma/seed.ts",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.10.0",
+    "@radix-ui/react-dialog": "^1.0.5",
+    "@radix-ui/react-dropdown-menu": "^2.0.6",
+    "@radix-ui/react-select": "^2.0.0",
+    "@radix-ui/react-tabs": "^1.0.4",
+    "@radix-ui/react-toast": "^1.1.5",
+    "@radix-ui/react-tooltip": "^1.0.7",
+    "bcryptjs": "^2.4.3",
+    "clsx": "^2.1.0",
+    "date-fns": "^3.3.1",
+    "jose": "^5.2.3",
+    "lucide-react": "^0.323.0",
+    "next": "14.2.29",
+    "openai": "^4.26.0",
+    "react": "^18",
+    "react-dom": "^18",
+    "recharts": "^2.12.1",
+    "tailwind-merge": "^2.2.1",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.0.1",
+    "postcss": "^8",
+    "prisma": "^5.10.0",
+    "tailwindcss": "^3.3.0",
+    "tsx": "^4.7.1",
+    "typescript": "^5"
+  }
+}

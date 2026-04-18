@@ -1,0 +1,79 @@
+/* src/app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --teal: #00B4C8;
+  --teal-dark: #0096A8;
+  --teal-light: #E0F7FA;
+  --purple: #7B2FBE;
+  --purple-light: #F3E8FF;
+  --dark: #1A1A2E;
+  --success: #22C55E;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --gray-bg: #F5F5F5;
+}
+
+@layer base {
+  * { @apply border-gray-200; }
+  body { @apply bg-gray-50 text-gray-900 antialiased; }
+  h1,h2,h3,h4,h5,h6 { @apply font-semibold tracking-tight; }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-[#00B4C8] hover:bg-[#0096A8] text-white font-medium px-4 py-2 rounded-lg transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-medium px-4 py-2 rounded-lg transition-colors duration-150;
+  }
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-lg transition-colors duration-150;
+  }
+  .card {
+    @apply bg-white rounded-xl border border-gray-200 shadow-sm;
+  }
+  .input {
+    @apply w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00B4C8] focus:border-transparent transition-all;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+  .sidebar-link {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors;
+  }
+  .sidebar-link-active {
+    @apply bg-[#E0F7FA] text-[#00B4C8] hover:bg-[#E0F7FA];
+  }
+  .stat-card {
+    @apply card p-5 flex flex-col gap-1;
+  }
+  .page-title {
+    @apply text-2xl font-bold text-gray-900;
+  }
+  .section-title {
+    @apply text-base font-semibold text-gray-800;
+  }
+  .label {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
+
+/* Loading skeleton animation */
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 1000px 100%;
+  animation: shimmer 1.5s infinite;
+}

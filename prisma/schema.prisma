@@ -1,0 +1,437 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── USERS ───────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  phone         String?
+  passwordHash  String?
+  role          UserRole  @default(AGENT)
+  plan          Plan      @default(FREE)
+  planExpiresAt DateTime?
+  avatarUrl     String?
+  companyName   String?
+  timezone      String    @default("Asia/Kolkata")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  teamId         String?
+  team           Team?          @relation("TeamMembers", fields: [teamId], references: [id])
+  ownedTeam      Team?          @relation("TeamOwner")
+  clients        Client[]       @relation("AssignedClients")
+  createdClients Client[]       @relation("CreatedClients")
+  activities     Activity[]
+  templates      Template[]
+  sequences      Sequence[]
+  sessions       Session[]
+  toolUsages     ToolUsage[]
+  notifications  Notification[]
+  contentFiles   ContentFile[]
+  onboarding     OnboardingProgress?
+
+  @@index([email])
+  @@index([teamId])
+}
+
+enum UserRole {
+  OWNER
+  MANAGER
+  AGENT
+  ADMIN // Super admin for platform
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+  TEAM
+}
+
+// ─── TEAMS ───────────────────────────────────────────────────────────────────
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  ownerId   String   @unique
+  owner     User     @relation("TeamOwner", fields: [ownerId], references: [id])
+  members   User[]   @relation("TeamMembers")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clients    Client[]
+  sequences  Sequence[]
+  templates  Template[]
+}
+
+// ─── SESSIONS ────────────────────────────────────────────────────────────────
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+// ─── CLIENTS / LEADS ─────────────────────────────────────────────────────────
+
+model Client {
+  id            String       @id @default(cuid())
+  name          String
+  phone         String
+  email         String?
+  status        ClientStatus @default(NEW)
+  leadSource    String?      // "Facebook", "Google", "Website", "Manual", etc.
+  notes         String?      @db.Text
+  followUpAt    DateTime?
+  tags          String[]
+  customFields  Json?        // Flexible JSON for custom fields
+  contentViews  Int          @default(0)
+  lastActivityAt DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // Relations
+  assignedToId String?
+  assignedTo   User?        @relation("AssignedClients", fields: [assignedToId], references: [id])
+  createdById  String
+  createdBy    User         @relation("CreatedClients", fields: [createdById], references: [id])
+  teamId       String?
+  team         Team?        @relation(fields: [teamId], references: [id])
+
+  activities     Activity[]
+  contentShares  ContentShare[]
+  sequenceRuns   SequenceRun[]
+  notifications  Notification[]
+
+  @@index([assignedToId])
+  @@index([teamId])
+  @@index([status])
+  @@index([leadSource])
+  @@index([followUpAt])
+  @@index([phone])
+}
+
+enum ClientStatus {
+  NEW
+  CONTACTED
+  INTERESTED
+  FOLLOW_UP
+  PROPOSAL_SENT
+  NEGOTIATION
+  CONVERTED
+  LOST
+}
+
+// ─── ACTIVITIES / TIMELINE ───────────────────────────────────────────────────
+
+model Activity {
+  id         String       @id @default(cuid())
+  type       ActivityType
+  clientId   String
+  client     Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User         @relation(fields: [userId], references: [id])
+  notes      String?      @db.Text
+  metadata   Json?        // Extra data: template used, call duration, file name, etc.
+  createdAt  DateTime     @default(now())
+
+  @@index([clientId])
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+enum ActivityType {
+  LEAD_RECEIVED
+  WHATSAPP_SENT
+  CALL_MADE
+  SMS_SENT
+  EMAIL_SENT
+  CONTENT_SHARED
+  CONTENT_VIEWED
+  STATUS_CHANGED
+  NOTE_ADDED
+  FOLLOWUP_SET
+  FOLLOWUP_COMPLETED
+  ASSIGNED
+  SEQUENCE_STARTED
+  SEQUENCE_STEP_COMPLETED
+}
+
+// ─── MESSAGE TEMPLATES ───────────────────────────────────────────────────────
+
+model Template {
+  id        String           @id @default(cuid())
+  name      String
+  body      String           @db.Text
+  channel   TemplateChannel
+  category  TemplateCategory @default(INTRODUCTION)
+  isGlobal  Boolean          @default(false)
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  teamId    String?
+  team      Team?            @relation(fields: [teamId], references: [id])
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  sequenceSteps SequenceStep[]
+
+  @@index([userId])
+  @@index([teamId])
+}
+
+enum TemplateChannel {
+  WHATSAPP
+  SMS
+  EMAIL
+}
+
+enum TemplateCategory {
+  INTRODUCTION
+  FOLLOWUP
+  REMINDER
+  CLOSING
+  AFTER_SALE
+}
+
+// ─── SEQUENCES / AUTOMATIONS ─────────────────────────────────────────────────
+
+model Sequence {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isDefault   Boolean  @default(false)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  teamId      String?
+  team        Team?    @relation(fields: [teamId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  steps SequenceStep[]
+  runs  SequenceRun[]
+
+  @@index([userId])
+  @@index([teamId])
+}
+
+model SequenceStep {
+  id          String          @id @default(cuid())
+  sequenceId  String
+  sequence    Sequence        @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  order       Int
+  channel     TemplateChannel
+  delayMinutes Int            @default(0) // 0 = immediate
+  templateId  String?
+  template    Template?       @relation(fields: [templateId], references: [id])
+  customBody  String?         @db.Text    // If no template
+  createdAt   DateTime        @default(now())
+
+  @@index([sequenceId])
+}
+
+model SequenceRun {
+  id          String          @id @default(cuid())
+  sequenceId  String
+  sequence    Sequence        @relation(fields: [sequenceId], references: [id])
+  clientId    String
+  client      Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  status      SequenceStatus  @default(ACTIVE)
+  currentStep Int             @default(0)
+  startedAt   DateTime        @default(now())
+  completedAt DateTime?
+
+  @@index([sequenceId])
+  @@index([clientId])
+}
+
+enum SequenceStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+// ─── CONTENT LIBRARY ─────────────────────────────────────────────────────────
+
+model ContentFile {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  fileUrl     String
+  fileType    String   // pdf, image, video
+  fileSize    Int      // in bytes
+  folder      String?
+  trackingKey String   @unique @default(cuid())
+  totalViews  Int      @default(0)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  shares ContentShare[]
+
+  @@index([userId])
+  @@index([trackingKey])
+}
+
+model ContentShare {
+  id            String      @id @default(cuid())
+  contentFileId String
+  contentFile   ContentFile @relation(fields: [contentFileId], references: [id], onDelete: Cascade)
+  clientId      String
+  client        Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  trackingUrl   String      @unique
+  viewCount     Int         @default(0)
+  lastViewedAt  DateTime?
+  createdAt     DateTime    @default(now())
+
+  @@index([clientId])
+  @@index([contentFileId])
+}
+
+// ─── LEAD SOURCES / WEBHOOKS ─────────────────────────────────────────────────
+
+model LeadSource {
+  id          String          @id @default(cuid())
+  name        String
+  type        LeadSourceType
+  webhookUrl  String?         @unique // Inbound webhook URL for this source
+  config      Json?           // Source-specific config (FB page ID, form ID, etc.)
+  isActive    Boolean         @default(true)
+  userId      String
+  leadCount   Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([webhookUrl])
+}
+
+enum LeadSourceType {
+  FACEBOOK_ADS
+  INSTAGRAM_ADS
+  GOOGLE_ADS
+  TIKTOK_ADS
+  WEBSITE_FORM
+  WORDPRESS
+  ZAPIER
+  INDIAMART
+  MANUAL
+  CSV_IMPORT
+  API
+}
+
+// ─── NOTIFICATIONS ───────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId  String?
+  client    Client?          @relation(fields: [clientId], references: [id])
+  type      NotificationType
+  title     String
+  body      String
+  isRead    Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  NEW_LEAD
+  FOLLOWUP_DUE
+  CONTENT_VIEWED
+  TEAM_ASSIGNMENT
+  SEQUENCE_STEP
+  SYSTEM
+}
+
+// ─── ONBOARDING ──────────────────────────────────────────────────────────────
+
+model OnboardingProgress {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  downloadedApp         Boolean  @default(false)
+  connectedFacebook     Boolean  @default(false)
+  connectedLeadSources  Boolean  @default(false)
+  setDefaultSequence    Boolean  @default(false)
+  setAutoResponder      Boolean  @default(false)
+  addedCustomFields     Boolean  @default(false)
+  invitedTeam           Boolean  @default(false)
+  sentFirstMessage      Boolean  @default(false)
+  completedAt           DateTime?
+  updatedAt             DateTime @updatedAt
+}
+
+// ─── TOOL USAGE (Admin Analytics) ───────────────────────────────────────────
+
+model ToolUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String   // e.g. "create_lead", "send_whatsapp", "use_sequence"
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ─── SUBSCRIPTIONS / BILLING ─────────────────────────────────────────────────
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  userId             String             @unique
+  plan               Plan
+  status             SubscriptionStatus @default(ACTIVE)
+  stripeCustomerId   String?
+  stripeSubId        String?
+  razorpaySubId      String?
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean            @default(false)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@index([userId])
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  TRIALING
+}
+
+// ─── EMAIL WAITLIST ──────────────────────────────────────────────────────────
+
+model EmailWaitlist {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  source    String?  // landing page UTM
+  createdAt DateTime @default(now())
+}
