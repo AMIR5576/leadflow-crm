@@ -1,11 +1,17 @@
 "use client";
 // src/components/dashboard/TemplatesManager.tsx
 import { useState } from "react";
-import { Plus, MessageCircle, Phone, Mail, Trash2, Edit, X, Check } from "lucide-react";
+import { Plus, MessageCircle, Phone, Mail, Trash2, Edit, X } from "lucide-react";
 
 interface Template {
   id: string; name: string; body: string;
   channel: string; category: string; isGlobal: boolean;
+}
+
+interface Props {
+  initialTemplates?: Template[];
+  createTemplate: (formData: FormData) => Promise<{ error?: string; success?: boolean; data?: Template }>;
+  deleteTemplate: (id: string) => Promise<{ error?: string; success?: boolean }>;
 }
 
 const CHANNELS = ["WHATSAPP", "SMS", "EMAIL"];
@@ -24,10 +30,9 @@ const CHANNEL_ICONS: Record<string, React.ReactNode> = {
 };
 
 const TOKENS = ["{{name}}", "{{agent_name}}", "{{company}}", "{{phone}}", "{{email}}"];
-
 const DEFAULT_FORM = { name: "", body: "", channel: "WHATSAPP", category: "INTRODUCTION", isGlobal: false };
 
-export default function TemplatesManager({ initialTemplates = [] }: { initialTemplates?: Template[] }) {
+export default function TemplatesManager({ initialTemplates = [], createTemplate, deleteTemplate }: Props) {
   const [templates, setTemplates] = useState<Template[]>(initialTemplates);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -59,27 +64,26 @@ export default function TemplatesManager({ initialTemplates = [] }: { initialTem
     setSaving(true);
     setError("");
     try {
-      const res = await fetch("/api/templates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!data.success) { setError(data.error || "Failed to save"); return; }
-      setTemplates(t => [data.data, ...t]);
+      const fd = new FormData();
+      fd.append("name", form.name);
+      fd.append("body", form.body);
+      fd.append("channel", form.channel);
+      fd.append("category", form.category);
+      fd.append("isGlobal", String(form.isGlobal));
+      const result = await createTemplate(fd);
+      if (result.error) { setError(result.error); return; }
+      if (result.data) setTemplates(t => [result.data!, ...t]);
       setShowModal(false);
       setForm(DEFAULT_FORM);
-    } catch { setError("Network error"); }
+    } catch { setError("Failed to save. Please try again."); }
     finally { setSaving(false); }
   }
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this template?")) return;
-    try {
-      await fetch(`/api/templates?id=${id}`, { method: "DELETE", credentials: "include" });
-      setTemplates(t => t.filter(x => x.id !== id));
-    } catch { alert("Delete failed"); }
+    const result = await deleteTemplate(id);
+    if (result.error) { alert(result.error); return; }
+    setTemplates(t => t.filter(x => x.id !== id));
   }
 
   return (
@@ -94,7 +98,6 @@ export default function TemplatesManager({ initialTemplates = [] }: { initialTem
         </button>
       </div>
 
-      {/* Tokens */}
       <div className="card p-4 bg-[#E0F7FA] border-[#00B4C8] border">
         <p className="text-sm font-semibold text-[#00B4C8] mb-2">📌 Personalization Tokens — click to copy</p>
         <div className="flex flex-wrap gap-2">
@@ -107,7 +110,6 @@ export default function TemplatesManager({ initialTemplates = [] }: { initialTem
         </div>
       </div>
 
-      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl">
@@ -117,14 +119,12 @@ export default function TemplatesManager({ initialTemplates = [] }: { initialTem
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-
             <div className="space-y-4">
               <div>
                 <label className="label">Template Name *</label>
                 <input className="input" placeholder="e.g. New Lead Introduction"
                   value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Channel</label>
@@ -139,7 +139,6 @@ export default function TemplatesManager({ initialTemplates = [] }: { initialTem
                   </select>
                 </div>
               </div>
-
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="label mb-0">Message Body *</label>
@@ -152,25 +151,18 @@ export default function TemplatesManager({ initialTemplates = [] }: { initialTem
                     ))}
                   </div>
                 </div>
-                <textarea
-                  className="input min-h-[120px] resize-y"
+                <textarea className="input min-h-[120px] resize-y"
                   placeholder="Hi {{name}}! 👋 Thanks for your enquiry. I'm {{agent_name}} and I'd love to help you!"
-                  value={form.body}
-                  onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
-                />
+                  value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))} />
                 <div className="text-xs text-gray-400 mt-1">{form.body.length} characters</div>
               </div>
-
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="global" checked={form.isGlobal}
-                  onChange={e => setForm(f => ({ ...f, isGlobal: e.target.checked }))}
-                  className="rounded" />
+                  onChange={e => setForm(f => ({ ...f, isGlobal: e.target.checked }))} className="rounded" />
                 <label htmlFor="global" className="text-sm text-gray-600">Make available to all team members</label>
               </div>
             </div>
-
             {error && <div className="mt-3 text-sm text-red-600 bg-red-50 rounded-lg p-3">{error}</div>}
-
             <div className="flex gap-3 mt-5">
               <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancel</button>
               <button onClick={handleSave} disabled={saving} className="btn-primary flex-1">
@@ -181,7 +173,6 @@ export default function TemplatesManager({ initialTemplates = [] }: { initialTem
         </div>
       )}
 
-      {/* Templates list */}
       {templates.length === 0 ? (
         <div className="card p-16 text-center">
           <div className="text-4xl mb-3">💬</div>
@@ -196,7 +187,7 @@ export default function TemplatesManager({ initialTemplates = [] }: { initialTem
             <p className="text-sm font-semibold text-gray-700">Example templates:</p>
             {[
               { name: "New Lead Intro", channel: "WHATSAPP", body: "Hi {{name}}! 👋 Thanks for your enquiry. I'm {{agent_name}}. Can we connect for a quick call?" },
-              { name: "Follow-up Day 1", channel: "WHATSAPP", body: "Hi {{name}}, just following up on your enquiry. Are you still looking? I have some great options!" },
+              { name: "Follow-up Day 1", channel: "WHATSAPP", body: "Hi {{name}}, just following up on your enquiry. Are you still looking?" },
               { name: "Closing Message", channel: "WHATSAPP", body: "Hi {{name}}, the offer we discussed is still available. Shall we proceed? 🏠" },
             ].map((t) => (
               <div key={t.name} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
