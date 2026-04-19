@@ -34,7 +34,7 @@ export default function ContentLibrary() {
       fd.append("name", form.name || file.name);
       fd.append("description", form.description);
       fd.append("folder", form.folder);
-      const res = await fetch("/api/content/upload", { method: "POST", body: fd });
+      const res = await fetch("/api/content/upload", { method: "POST", body: fd, credentials: "include" });
       const data = await res.json();
       if (!data.success) { setUploadError(data.error || "Upload failed"); return; }
       setFiles((f) => [data.data, ...f]);
