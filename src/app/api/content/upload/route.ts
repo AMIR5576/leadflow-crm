@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionFromRequest } from "@/lib/auth";
+import { verifyToken } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
-  const session = await getSessionFromRequest(req);
+  const token = req.cookies.get("leadflow_session")?.value;
+  if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+
+  const session = await verifyToken(token);
   if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
   try {
@@ -17,7 +20,7 @@ export async function POST(req: NextRequest) {
     if (file.size > 10 * 1024 * 1024) return NextResponse.json({ success: false, error: "File too large. Max 10MB." }, { status: 400 });
 
     const apiKey = process.env.UPLOADTHING_SECRET;
-    if (!apiKey) return NextResponse.json({ success: false, error: "Storage not configured." }, { status: 500 });
+    if (!apiKey) return NextResponse.json({ success: false, error: "Storage not configured. Add UPLOADTHING_SECRET to Vercel environment variables." }, { status: 500 });
 
     const presignRes = await fetch("https://uploadthing.com/api/uploadFiles", {
       method: "POST",
@@ -50,6 +53,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    await prisma.toolUsage.create({ data: { userId: session.id, action: "upload_content" } });
     return NextResponse.json({ success: true, data: contentFile }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Upload failed" }, { status: 500 });
