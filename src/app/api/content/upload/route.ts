@@ -4,13 +4,11 @@ import prisma from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   let token = req.cookies.get("leadflow_session")?.value;
-  
   if (!token) {
-    const authHeader = req.headers.get("authorization");
-    if (authHeader?.startsWith("Bearer ")) token = authHeader.slice(7);
+    const auth = req.headers.get("authorization");
+    if (auth?.startsWith("Bearer ")) token = auth.slice(7);
   }
-
-  if (!token) return NextResponse.json({ success: false, error: "No session. Please sign out and sign back in." }, { status: 401 });
+  if (!token) return NextResponse.json({ success: false, error: "Please sign out and sign back in." }, { status: 401 });
 
   const session = await verifyToken(token);
   if (!session) return NextResponse.json({ success: false, error: "Session expired. Please sign in again." }, { status: 401 });
@@ -25,11 +23,11 @@ export async function POST(req: NextRequest) {
     if (!file) return NextResponse.json({ success: false, error: "No file provided" }, { status: 400 });
     if (file.size > 10 * 1024 * 1024) return NextResponse.json({ success: false, error: "File too large. Max 10MB." }, { status: 400 });
 
-    const apiKey = process.env.UPLOADTHING_SECRET;
-    if (!apiKey) return NextResponse.json({ success: false, error: "Add UPLOADTHING_SECRET to Vercel environment variables." }, { status: 500 });
+    const utToken = process.env.UPLOADTHING_TOKEN;
+    if (!utToken) return NextResponse.json({ success: false, error: "Add UPLOADTHING_TOKEN to Vercel environment variables." }, { status: 500 });
 
     const { UTApi } = await import("uploadthing/server");
-    const utapi = new UTApi({ token: apiKey });
+    const utapi = new UTApi({ token: utToken });
     const response = await utapi.uploadFiles(file);
 
     if (response.error || !response.data) {
