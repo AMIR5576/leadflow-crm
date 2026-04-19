@@ -15,8 +15,8 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function ContentLibrary() {
-  const [files, setFiles] = useState<ContentFile[]>([]);
+export default function ContentLibrary({ initialFiles = [] }: { initialFiles?: ContentFile[] }) {
+  const [files, setFiles] = useState<ContentFile[]>(initialFiles);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [showModal, setShowModal] = useState(false);
