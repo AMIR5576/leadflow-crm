@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyToken } from "@/lib/auth";
+import { getSessionFromRequest } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 
@@ -11,36 +11,23 @@ const schema = z.object({
   isGlobal: z.boolean().optional(),
 });
 
-async function getSession(req: NextRequest) {
-  // Try all possible cookie names
-  const allCookies = req.cookies.getAll();
-  const sessionCookie = allCookies.find(c => 
-    c.name === "leadflow_session" || 
-    c.name.includes("session") || 
-    c.name.includes("token")
-  );
-  const token = sessionCookie?.value;
-  if (!token) return null;
-  return verifyToken(token);
-}
-
 export async function GET(req: NextRequest) {
-  const session = await getSession(req);
+  const session = await getSessionFromRequest(req);
   if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-  const templates = await prisma.template.findMany({ 
-    where: { userId: session.id }, 
-    orderBy: { createdAt: "desc" } 
+  const templates = await prisma.template.findMany({
+    where: { userId: session.id },
+    orderBy: { createdAt: "desc" },
   });
   return NextResponse.json({ success: true, data: templates });
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getSession(req);
+  const session = await getSessionFromRequest(req);
   if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   try {
     const data = schema.parse(await req.json());
-    const template = await prisma.template.create({ 
-      data: { ...data, userId: session.id } 
+    const template = await prisma.template.create({
+      data: { ...data, userId: session.id },
     });
     return NextResponse.json({ success: true, data: template }, { status: 201 });
   } catch (e) {
@@ -50,7 +37,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = await getSession(req);
+  const session = await getSessionFromRequest(req);
   if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ success: false, error: "ID required" }, { status: 400 });
