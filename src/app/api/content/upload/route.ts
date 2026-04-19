@@ -5,7 +5,6 @@ import prisma from "@/lib/prisma";
 export async function POST(req: NextRequest) {
   const token = req.cookies.get("leadflow_session")?.value;
   if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-
   const session = await verifyToken(token);
   if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
@@ -20,29 +19,18 @@ export async function POST(req: NextRequest) {
     if (file.size > 10 * 1024 * 1024) return NextResponse.json({ success: false, error: "File too large. Max 10MB." }, { status: 400 });
 
     const apiKey = process.env.UPLOADTHING_SECRET;
-    if (!apiKey) return NextResponse.json({ success: false, error: "Storage not configured. Add UPLOADTHING_SECRET to Vercel environment variables." }, { status: 500 });
+    if (!apiKey) return NextResponse.json({ success: false, error: "Add UPLOADTHING_SECRET to Vercel environment variables." }, { status: 500 });
 
-    const presignRes = await fetch("https://uploadthing.com/api/uploadFiles", {
-      method: "POST",
-      headers: { "X-Uploadthing-Api-Key": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ files: [{ name: file.name, size: file.size, type: file.type }], acl: "public-read", contentDisposition: "inline" }),
-    });
+    const { UTApi } = await import("uploadthing/server");
+    const utapi = new UTApi({ token: apiKey });
 
-    if (!presignRes.ok) return NextResponse.json({ success: false, error: "Upload service error." }, { status: 500 });
+    const response = await utapi.uploadFiles(file);
 
-    const presignData = await presignRes.json();
-    const uploadData = presignData.data?.[0];
-    if (!uploadData?.url) return NextResponse.json({ success: false, error: "Could not get upload URL." }, { status: 500 });
+    if (response.error || !response.data) {
+      return NextResponse.json({ success: false, error: "Upload failed: " + (response.error?.message || "Unknown") }, { status: 500 });
+    }
 
-    const fields = uploadData.fields || {};
-    const s3Form = new FormData();
-    Object.entries(fields).forEach(([k, v]) => s3Form.append(k, v as string));
-    s3Form.append("file", file);
-
-    const s3Res = await fetch(uploadData.url, { method: "POST", body: s3Form });
-    if (!s3Res.ok) return NextResponse.json({ success: false, error: "File upload failed." }, { status: 500 });
-
-    const fileUrl = uploadData.fileUrl || `${uploadData.url}/${fields.key}`;
+    const fileUrl = response.data.ufsUrl || response.data.url;
     const trackingKey = Math.random().toString(36).slice(2) + Date.now().toString(36);
 
     const contentFile = await prisma.contentFile.create({
@@ -56,6 +44,7 @@ export async function POST(req: NextRequest) {
     await prisma.toolUsage.create({ data: { userId: session.id, action: "upload_content" } });
     return NextResponse.json({ success: true, data: contentFile }, { status: 201 });
   } catch (error) {
+    console.error("Upload error:", error);
     return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Upload failed" }, { status: 500 });
   }
 }
