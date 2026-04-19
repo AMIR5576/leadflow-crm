@@ -3,10 +3,17 @@ import { verifyToken } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
-  const token = req.cookies.get("leadflow_session")?.value;
-  if (!token) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  let token = req.cookies.get("leadflow_session")?.value;
+  
+  if (!token) {
+    const authHeader = req.headers.get("authorization");
+    if (authHeader?.startsWith("Bearer ")) token = authHeader.slice(7);
+  }
+
+  if (!token) return NextResponse.json({ success: false, error: "No session. Please sign out and sign back in." }, { status: 401 });
+
   const session = await verifyToken(token);
-  if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ success: false, error: "Session expired. Please sign in again." }, { status: 401 });
 
   try {
     const formData = await req.formData();
@@ -23,7 +30,6 @@ export async function POST(req: NextRequest) {
 
     const { UTApi } = await import("uploadthing/server");
     const utapi = new UTApi({ token: apiKey });
-
     const response = await utapi.uploadFiles(file);
 
     if (response.error || !response.data) {
