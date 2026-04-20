@@ -1,11 +1,11 @@
 // src/app/dashboard/clients/[id]/page.tsx
-import { getSession } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import { formatDateTime, STATUS_COLORS, STATUS_LABELS, whatsappLink } from "@/lib/utils";
 import type { ClientStatus } from "@/types";
 import { MessageCircle, Phone, Mail, Clock, Tag, Edit, Activity, FileText, User } from "lucide-react";
 import Link from "next/link";
+import { getSession } from "@/lib/auth";
 
 const ACTIVITY_ICONS: Record<string, string> = {
   LEAD_RECEIVED: "📥", WHATSAPP_SENT: "💬", CALL_MADE: "📞",
@@ -15,8 +15,16 @@ const ACTIVITY_ICONS: Record<string, string> = {
 };
 
 export default async function ClientDetailPage({ params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session) redirect("/auth/login");
+  let session = null;
+  try {
+    session = await getSession();
+  } catch {
+    session = null;
+  }
+
+  if (!session) {
+    notFound();
+  }
 
   const client = await prisma.client.findFirst({
     where: { id: params.id, createdById: session.id },
