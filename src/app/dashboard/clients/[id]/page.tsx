@@ -15,19 +15,11 @@ const ACTIVITY_ICONS: Record<string, string> = {
 };
 
 export default async function ClientDetailPage({ params }: { params: { id: string } }) {
-  let session = null;
-  try {
-    session = await getSession();
-  } catch {
-    session = null;
-  }
-
-  if (!session) {
-    notFound();
-  }
+  const session = await getSession().catch(() => null);
+  if (!session) notFound();
 
   const client = await prisma.client.findFirst({
-    where: { id: params.id, createdById: session.id },
+    where: { id: params.id, createdById: session!.id },
     include: {
       assignedTo: true,
       activities: {
@@ -50,7 +42,6 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
   return (
     <div className="max-w-5xl mx-auto space-y-4">
-      {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#00B4C8] to-[#7B2FBE] flex items-center justify-center text-white text-2xl font-bold shrink-0">
@@ -75,9 +66,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
-        {/* Left panel */}
         <div className="lg:col-span-1 space-y-4">
-          {/* Contact info */}
           <div className="card p-5 space-y-3">
             <h2 className="section-title">Contact Info</h2>
             <div className="space-y-2.5">
@@ -104,15 +93,10 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
             </div>
           </div>
 
-          {/* Quick Outreach */}
           <div className="card p-5 space-y-2">
             <h2 className="section-title">Quick Outreach</h2>
-            <a
-              href={whatsappLink(client.phone)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2.5 w-full bg-green-500 hover:bg-green-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
-            >
+            <a href={whatsappLink(client.phone)} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2.5 w-full bg-green-500 hover:bg-green-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors">
               <MessageCircle className="w-4 h-4" /> Open WhatsApp
             </a>
             <a href={`tel:${client.phone}`} className="flex items-center gap-2.5 w-full btn-secondary text-sm">
@@ -125,7 +109,6 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
             )}
           </div>
 
-          {/* Notes */}
           {client.notes && (
             <div className="card p-5">
               <h2 className="section-title mb-2">Notes</h2>
@@ -133,7 +116,6 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
             </div>
           )}
 
-          {/* Custom Fields */}
           {customFields && Object.keys(customFields).length > 0 && (
             <div className="card p-5">
               <h2 className="section-title mb-3">Details</h2>
@@ -151,7 +133,6 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
             </div>
           )}
 
-          {/* Content Shares */}
           {client.contentShares.length > 0 && (
             <div className="card p-5">
               <h2 className="section-title mb-3 flex items-center gap-1.5">
@@ -169,7 +150,6 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
           )}
         </div>
 
-        {/* Timeline */}
         <div className="lg:col-span-2">
           <div className="card p-5 h-full flex flex-col">
             <h2 className="section-title mb-4 flex items-center gap-1.5">
