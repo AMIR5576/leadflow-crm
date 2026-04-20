@@ -33,6 +33,7 @@ export default function NewClientPage() {
       const res = await fetch("/api/clients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           ...form,
           tags: form.tags ? form.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
